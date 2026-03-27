@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Blink UI Theme CSS
+   REQUIRED for @blinkdotnew/ui components to render correctly.
+   BlinkUIProvider adds .theme-{name} + .dark/.light to <html>,
+   activating the matching CSS variable set below.
+   ───────────────────────────────────────────────────────────────────────────── */
+@import '@blinkdotnew/ui/styles';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Syne', sans-serif;
+  }
+}
+
+/* ── App palette (unlayered, after utilities) ─────────────────────────────────
+   Overrides @blinkdotnew/ui theme colors.
+   ──────────────────────────────────────────────────────────────────────────── */
+:root {
+  --background: 0 0% 98%;
+  --foreground: 220 14% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 14% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 14% 10%;
+  --primary: 25 95% 48%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 220 14% 20%;
+  --muted: 220 14% 95%;
+  --muted-foreground: 220 8% 46%;
+  --accent: 43 100% 54%;
+  --accent-foreground: 220 14% 10%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 25 95% 48%;
+  --radius: 0.75rem;
+  --chart-1: 25 95% 48%;
+  --chart-2: 43 100% 54%;
+  --chart-3: 220 14% 10%;
+  --chart-4: 142 71% 45%;
+  --chart-5: 0 84% 60%;
+  --sidebar: 220 14% 10%;
+  --sidebar-foreground: 0 0% 95%;
+  --sidebar-primary: 25 95% 48%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 14% 16%;
+  --sidebar-accent-foreground: 0 0% 90%;
+  --sidebar-border: 220 14% 16%;
+  --sidebar-ring: 25 95% 48%;
+  --font-sans: 'DM Sans', sans-serif;
+  --font-serif: Georgia, serif;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow: 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.15);
+}
+
+:root.dark,
+.theme-linear.dark,
+.theme-glass.dark,
+.theme-midnight.dark,
+.theme-minimal.dark {
+  --background: 220 14% 8%;
+  --foreground: 0 0% 95%;
+  --card: 220 14% 11%;
+  --card-foreground: 0 0% 92%;
+  --popover: 220 14% 11%;
+  --popover-foreground: 0 0% 92%;
+  --primary: 25 95% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 16%;
+  --secondary-foreground: 0 0% 80%;
+  --muted: 220 14% 16%;
+  --muted-foreground: 220 8% 55%;
+  --accent: 43 100% 58%;
+  --accent-foreground: 220 14% 10%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 14% 18%;
+  --input: 220 14% 18%;
+  --ring: 25 95% 55%;
+  --sidebar: 220 14% 7%;
+  --sidebar-foreground: 0 0% 90%;
+  --sidebar-primary: 25 95% 55%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 14% 14%;
+  --sidebar-accent-foreground: 0 0% 85%;
+  --sidebar-border: 220 14% 14%;
+  --sidebar-ring: 25 95% 55%;
+}
+
+.animate-fade-in { animation: fadeIn 0.4s ease-out both; }
+.animate-slide-up { animation: slideUp 0.5s ease-out both; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
