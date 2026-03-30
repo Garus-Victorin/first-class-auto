@@ -4,7 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   LayoutDashboard, Car, FileText,
   Plus, Pencil, Trash2, Check, X, Eye, LogOut, Lock, Users,
-  ImageIcon, VideoIcon, Search, ArrowUpRight,
+  ImageIcon, VideoIcon, Search, ArrowUpRight, Newspaper, Store,
 } from 'lucide-react'
 import {
   Button, Badge, Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -12,9 +12,9 @@ import {
 } from '@blinkdotnew/ui'
 import type { ColumnDef } from '@tanstack/react-table'
 import { supabase } from '@/blink/client'
-import { dbToVehicle, dbToListing } from '@/lib/db'
+import { dbToVehicle, dbToListing, dbToBlogPost } from '@/lib/db'
 import { BRANDS, FUEL_TYPES, TRANSMISSIONS, LOCATIONS, formatPrice, parseImages, DEFAULT_CAR_IMAGE } from '@/lib/utils'
-import type { Vehicle, Listing } from '@/types'
+import type { Vehicle, Listing, BlogPost } from '@/types'
 
 interface User {
   id: string
@@ -288,6 +288,288 @@ function VehicleForm({ initial, onSave, onCancel, loading }: {
           {loading ? 'Sauvegarde...' : 'Sauvegarder'}
         </Button>
       </div>
+    </div>
+  )
+}
+
+// ──────────── Blog Tab ────────────────────────────────────────────────────
+
+interface BlogFormData {
+  titre: string
+  contenu: string
+  images: string
+  videos: string
+  publishedAt: string
+}
+
+const EMPTY_BF: BlogFormData = {
+  titre: '', contenu: '', images: '', videos: '',
+  publishedAt: new Date().toISOString().slice(0, 16),
+}
+
+function BlogForm({ initial, onSave, onCancel, loading }: {
+  initial?: BlogFormData
+  onSave: (d: BlogFormData) => void
+  onCancel: () => void
+  loading?: boolean
+}) {
+  const [d, setD] = useState<BlogFormData>(initial || EMPTY_BF)
+  const [uploading, setUploading] = useState(false)
+  const set = (k: keyof BlogFormData, v: string) => setD((p) => ({ ...p, [k]: v }))
+
+  async function uploadFiles(files: File[], bucket: string, folder: string): Promise<string[]> {
+    const urls: string[] = []
+    for (const file of files) {
+      const ext = file.name.split('.').pop()
+      const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await supabase.storage.from(bucket).upload(path, file)
+      if (!error) urls.push(supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl)
+    }
+    return urls
+  }
+
+  async function handleImages(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setUploading(true)
+    const urls = await uploadFiles(files, 'vehicles-images', 'blog')
+    const existing = d.images ? d.images.split('\n').filter(Boolean) : []
+    set('images', [...existing, ...urls].join('\n'))
+    setUploading(false)
+  }
+
+  async function handleVideos(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setUploading(true)
+    const urls = await uploadFiles(files, 'vehicles-videos', 'blog')
+    const existing = d.videos ? d.videos.split('\n').filter(Boolean) : []
+    set('videos', [...existing, ...urls].join('\n'))
+    setUploading(false)
+  }
+
+  return (
+    <div className="space-y-3 max-h-[75vh] overflow-y-auto pr-1">
+      <div>
+        <label className="text-xs font-medium text-foreground mb-1 block">Titre *</label>
+        <input value={d.titre} onChange={(e) => set('titre', e.target.value)} placeholder="Titre de l'article" className={inputClass} />
+      </div>
+      <div>
+        <label className="text-xs font-medium text-foreground mb-1 block">Contenu *</label>
+        <textarea
+          value={d.contenu}
+          onChange={(e) => set('contenu', e.target.value)}
+          rows={6}
+          placeholder="Rédigez votre article..."
+          className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+        />
+      </div>
+      <div>
+        <label className="text-xs font-medium text-foreground mb-1 block">Images <span className="text-muted-foreground font-normal">(optionnel)</span></label>
+        <label className={`flex items-center gap-2 w-full h-9 px-3 rounded-lg border border-dashed border-input bg-background text-xs cursor-pointer hover:border-primary hover:text-primary transition-colors ${uploading ? 'opacity-50 pointer-events-none' : 'text-muted-foreground'}`}>
+          <ImageIcon className="w-4 h-4 shrink-0" />
+          <span>{uploading ? 'Upload...' : d.images ? `${d.images.split('\n').filter(Boolean).length} image(s)` : 'Sélectionner des images'}</span>
+          <input type="file" accept="image/*" multiple className="hidden" onChange={handleImages} />
+        </label>
+        {d.images && (
+          <div className="grid grid-cols-4 gap-1.5 mt-2">
+            {d.images.split('\n').filter(Boolean).map((url, i) => (
+              <div key={i} className="relative group aspect-square">
+                <img src={url} className="w-full h-full object-cover rounded-lg" />
+                <button type="button" onClick={() => { const imgs = d.images.split('\n').filter(Boolean); imgs.splice(i, 1); set('images', imgs.join('\n')) }} className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="text-xs font-medium text-foreground mb-1 block">Vidéos <span className="text-muted-foreground font-normal">(optionnel)</span></label>
+        <label className={`flex items-center gap-2 w-full h-9 px-3 rounded-lg border border-dashed border-input bg-background text-xs cursor-pointer hover:border-primary hover:text-primary transition-colors ${uploading ? 'opacity-50 pointer-events-none' : 'text-muted-foreground'}`}>
+          <VideoIcon className="w-4 h-4 shrink-0" />
+          <span>{uploading ? 'Upload...' : d.videos ? `${d.videos.split('\n').filter(Boolean).length} vidéo(s)` : 'Sélectionner des vidéos'}</span>
+          <input type="file" accept="video/*" multiple className="hidden" onChange={handleVideos} />
+        </label>
+        {d.videos && (
+          <div className="grid grid-cols-2 gap-1.5 mt-2">
+            {d.videos.split('\n').filter(Boolean).map((url, i) => (
+              <div key={i} className="relative group">
+                <video src={url} className="w-full h-20 object-cover rounded-lg bg-secondary" />
+                <button type="button" onClick={() => { const vids = d.videos.split('\n').filter(Boolean); vids.splice(i, 1); set('videos', vids.join('\n')) }} className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="text-xs font-medium text-foreground mb-1 block">Date & heure de publication *</label>
+        <input
+          type="datetime-local"
+          value={d.publishedAt}
+          onChange={(e) => set('publishedAt', e.target.value)}
+          className={inputClass}
+        />
+      </div>
+      <div className="flex gap-3 pt-2">
+        <Button variant="outline" onClick={onCancel} className="flex-1">Annuler</Button>
+        <Button
+          className="flex-1 bg-primary text-white hover:bg-primary/90"
+          onClick={() => onSave(d)}
+          disabled={loading || uploading || !d.titre || !d.contenu || !d.publishedAt}
+        >
+          {loading ? 'Sauvegarde...' : 'Sauvegarder'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function BlogTab({ posts, refetch }: { posts: BlogPost[]; refetch: () => void }) {
+  const [addOpen, setAddOpen] = useState(false)
+  const [editPost, setEditPost] = useState<BlogPost | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+
+  const createMutation = useMutation({
+    mutationFn: async (d: BlogFormData) => {
+      const imgs = d.images.split('\n').map((s) => s.trim()).filter(Boolean)
+      const vids = d.videos.split('\n').map((s) => s.trim()).filter(Boolean)
+      const { error } = await supabase.from('blog').insert({
+        titre: d.titre, contenu: d.contenu,
+        images: JSON.stringify(imgs), videos: JSON.stringify(vids),
+        published_at: new Date(d.publishedAt).toISOString(),
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => { toast.success('Article publié !'); setAddOpen(false); refetch() },
+    onError: (e: unknown) => toast.error('Erreur : ' + (e instanceof Error ? e.message : String(e))),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, d }: { id: string; d: BlogFormData }) => {
+      const imgs = d.images.split('\n').map((s) => s.trim()).filter(Boolean)
+      const vids = d.videos.split('\n').map((s) => s.trim()).filter(Boolean)
+      const { error } = await supabase.from('blog').update({
+        titre: d.titre, contenu: d.contenu,
+        images: JSON.stringify(imgs), videos: JSON.stringify(vids),
+        published_at: new Date(d.publishedAt).toISOString(),
+      }).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => { toast.success('Article mis à jour !'); setEditPost(null); refetch() },
+    onError: (e: unknown) => toast.error('Erreur : ' + (e instanceof Error ? e.message : String(e))),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('blog').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => { toast.success('Article supprimé'); setDeleteId(null); refetch() },
+    onError: () => toast.error('Erreur lors de la suppression'),
+  })
+
+  function postToForm(p: BlogPost): BlogFormData {
+    return {
+      titre: p.titre, contenu: p.contenu,
+      images: p.images.join('\n'), videos: p.videos.join('\n'),
+      publishedAt: new Date(p.publishedAt).toISOString().slice(0, 16),
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 style={{ fontFamily: 'Syne, sans-serif' }} className="text-base font-bold text-foreground">
+          {posts.length} article(s)
+        </h3>
+        <Button size="sm" onClick={() => setAddOpen(true)} className="bg-primary text-white hover:bg-primary/90">
+          <Plus className="w-4 h-4 mr-1" /> Nouvel article
+        </Button>
+      </div>
+
+      {posts.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground text-sm">Aucun article</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {posts.map((p) => (
+            <div key={p.id} className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
+              {p.images.length > 0 && (
+                <div className="aspect-video bg-secondary">
+                  <img src={p.images[0]} alt={p.titre} className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="p-4">
+                <p style={{ fontFamily: 'Syne, sans-serif' }} className="font-bold text-foreground text-sm line-clamp-2 mb-1">{p.titre}</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {new Date(p.publishedAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+                </p>
+                {p.images.length > 1 && (
+                  <p className="text-xs text-muted-foreground mb-1">{p.images.length} images</p>
+                )}
+                <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{p.contenu}</p>
+                {p.videos.length > 0 && (
+                  <div className="mb-3 space-y-1.5">
+                    {p.videos.map((v, i) => (
+                      <video key={i} src={v} className="w-full h-20 object-cover rounded-lg bg-secondary" controls />
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditPost(p)}
+                    className="flex-1 flex items-center justify-center gap-1 h-8 rounded-lg border border-border hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Pencil className="w-3 h-3" /> Modifier
+                  </button>
+                  <button
+                    onClick={() => setDeleteId(p.id)}
+                    className="flex items-center justify-center w-8 h-8 rounded-lg border border-border hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-2xl" aria-describedby={undefined}>
+          <DialogHeader><DialogTitle>Nouvel article</DialogTitle></DialogHeader>
+          <BlogForm onSave={(d) => createMutation.mutate(d)} onCancel={() => setAddOpen(false)} loading={createMutation.isPending} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editPost} onOpenChange={(o) => !o && setEditPost(null)}>
+        <DialogContent className="max-w-2xl" aria-describedby={undefined}>
+          <DialogHeader><DialogTitle>Modifier l'article</DialogTitle></DialogHeader>
+          {editPost && (
+            <BlogForm
+              initial={postToForm(editPost)}
+              onSave={(d) => updateMutation.mutate({ id: editPost.id, d })}
+              onCancel={() => setEditPost(null)}
+              loading={updateMutation.isPending}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <DialogContent className="max-w-sm" aria-describedby={undefined}>
+          <DialogHeader><DialogTitle>Confirmer la suppression</DialogTitle></DialogHeader>
+          <p className="text-muted-foreground text-sm">Cet article sera supprimé définitivement.</p>
+          <div className="flex gap-3 mt-4">
+            <Button variant="outline" onClick={() => setDeleteId(null)} className="flex-1">Annuler</Button>
+            <Button
+              className="flex-1 bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? 'Suppression...' : 'Supprimer'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -1153,13 +1435,14 @@ function RevenueTab({ bookings }: { bookings: Booking[] }) {
 
 // ──────────── Main AdminPage ───────────────────────────────────────────────
 
-type AdminTab = 'dashboard' | 'vehicles' | 'listings' | 'users'
+type AdminTab = 'dashboard' | 'vehicles' | 'listings' | 'users' | 'blog'
 
 const TABS: { id: AdminTab; label: string; Icon: typeof Car }[] = [
   { id: 'dashboard', label: 'Tableau de bord', Icon: LayoutDashboard },
   { id: 'vehicles', label: 'Véhicules', Icon: Car },
   { id: 'listings', label: 'Annonces', Icon: FileText },
   { id: 'users', label: 'Utilisateurs', Icon: Users },
+  { id: 'blog', label: 'Blog', Icon: Newspaper },
 ]
 
 export function AdminPage() {
@@ -1172,6 +1455,7 @@ export function AdminPage() {
     if (path.endsWith('/vehicles')) return 'vehicles'
     if (path.endsWith('/listings')) return 'listings'
     if (path.endsWith('/users')) return 'users'
+    if (path.endsWith('/blog')) return 'blog'
     return 'dashboard'
   })()
 
@@ -1181,6 +1465,7 @@ export function AdminPage() {
       vehicles: '/admin/vehicles',
       listings: '/admin/listings',
       users: '/admin/users',
+      blog: '/admin/blog',
     }
     navigate({ to: paths[tab] })
   }
@@ -1208,6 +1493,16 @@ export function AdminPage() {
     retry: 1,
   })
 
+  const { data: posts = [], isLoading: bLoading, refetch: refetchB } = useQuery({
+    queryKey: ['admin-blog'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('blog').select('*').order('published_at', { ascending: false }).limit(200)
+      if (error) throw new Error(error.message)
+      return (data ?? []).map(dbToBlogPost)
+    },
+    enabled: unlocked,
+  })
+
   const { data: users = [], isLoading: uLoading, refetch: refetchU } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
@@ -1228,7 +1523,8 @@ export function AdminPage() {
     activeTab === 'dashboard' ? (vLoading || lLoading) :
     activeTab === 'vehicles'  ? vLoading :
     activeTab === 'listings'  ? lLoading :
-    activeTab === 'users'     ? uLoading : false
+    activeTab === 'users'     ? uLoading :
+    activeTab === 'blog'      ? bLoading : false
   )
 
   if (!unlocked) {
@@ -1263,7 +1559,15 @@ export function AdminPage() {
           </button>
         ))}
       </nav>
-      <div className="p-3 border-t border-sidebar-border">
+        <button
+                onClick={() => navigate({ to: '/' })}
+                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent transition-colors"
+              >
+                <Store className="w-4 h-4" />
+                Voir la boutique
+              </button>
+      <div className="p-3 border-t border-sidebar-border space-y-1">
+      
         <button
           onClick={() => { localStorage.removeItem('fca_user'); navigate({ to: '/login' }) }}
           className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent transition-colors"
@@ -1325,6 +1629,7 @@ export function AdminPage() {
               {activeTab === 'vehicles' && <VehiclesTab vehicles={vehicles} refetch={refetchV} />}
               {activeTab === 'listings' && <ListingsTab listings={listings} refetch={refetchL} />}
               {activeTab === 'users' && <UsersTab users={users} refetch={refetchU} />}
+              {activeTab === 'blog' && <BlogTab posts={posts} refetch={refetchB} />}
             </>
           )}
         </main>

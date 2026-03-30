@@ -1,4 +1,4 @@
-import type { Vehicle, Listing, Booking } from '@/types'
+import type { Vehicle, Listing, Booking, BlogPost } from '@/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function dbToVehicle(r: any): Vehicle {
@@ -50,6 +50,20 @@ export function dbToListing(r: any): Listing {
     location: r.location,
     status: r.status,
     adminNotes: r.admin_notes ?? undefined,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function dbToBlogPost(r: any): BlogPost {
+  return {
+    id: r.id,
+    titre: r.titre,
+    contenu: r.contenu,
+    images: typeof r.images === 'string' ? JSON.parse(r.images) : (Array.isArray(r.images) ? r.images : (r.image ? [r.image] : [])),
+    videos: typeof r.videos === 'string' ? JSON.parse(r.videos) : (Array.isArray(r.videos) ? r.videos : (r.video ? [r.video] : [])),
+    publishedAt: r.published_at,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }

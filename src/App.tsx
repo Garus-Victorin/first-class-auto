@@ -8,6 +8,7 @@ import { PublierPage } from './pages/PublierPage'
 import { ContactPage } from './pages/ContactPage'
 import { AdminPage } from './pages/AdminPage'
 import { LoginPage } from './pages/LoginPage'
+import { BlogPage } from './pages/BlogPage'
 
 function isLoggedIn() {
   return !!localStorage.getItem('fca_user')
@@ -85,6 +86,12 @@ const contactRoute = createRoute({
   component: ContactPage,
 })
 
+const blogRoute = createRoute({
+  getParentRoute: () => publicLayoutRoute,
+  path: '/blog',
+  component: BlogPage,
+})
+
 // Admin (no Navbar/Footer) — protégé
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -123,6 +130,11 @@ const adminUsersRoute = createRoute({
   path: '/users',
 })
 
+const adminBlogRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: '/blog',
+})
+
 // Login — redirige vers /admin si déjà connecté
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -139,6 +151,7 @@ const routeTree = rootRoute.addChildren([
     vehiculeRoute,
     publierRoute,
     contactRoute,
+    blogRoute,
   ]),
   adminRoute.addChildren([
     adminDashboardRoute,
@@ -147,6 +160,7 @@ const routeTree = rootRoute.addChildren([
     adminBookingsRoute,
     adminRevenueRoute,
     adminUsersRoute,
+    adminBlogRoute,
   ]),
   loginRoute,
 ])

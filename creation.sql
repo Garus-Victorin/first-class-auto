@@ -72,3 +72,34 @@ create policy "listings_anon_insert" on public.listings for insert with check (t
 create policy "listings_anon_read"   on public.listings for select using (true);
 create policy "listings_anon_update" on public.listings for update using (true);
 create policy "listings_anon_delete" on public.listings for delete using (true);
+
+-- ============================================================
+-- TABLE: blog
+-- ============================================================
+create table public.blog (
+  id           uuid primary key default uuid_generate_v4(),
+  titre        text not null,
+  contenu      text not null,
+  images       jsonb not null default '[]',
+  videos       jsonb not null default '[]',
+  published_at timestamptz not null default now(),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+-- Migration depuis image/video text vers images/videos jsonb:
+-- ALTER TABLE public.blog ADD COLUMN images jsonb NOT NULL DEFAULT '[]';
+-- ALTER TABLE public.blog ADD COLUMN videos jsonb NOT NULL DEFAULT '[]';
+-- UPDATE public.blog SET images = CASE WHEN image IS NOT NULL THEN jsonb_build_array(image) ELSE '[]' END;
+-- UPDATE public.blog SET videos = CASE WHEN video IS NOT NULL THEN jsonb_build_array(video) ELSE '[]' END;
+-- ALTER TABLE public.blog DROP COLUMN image;
+-- ALTER TABLE public.blog DROP COLUMN video;
+
+create trigger blog_updated_at before update on public.blog
+  for each row execute function set_updated_at();
+
+alter table public.blog enable row level security;
+create policy "blog_public_read"  on public.blog for select using (true);
+create policy "blog_anon_write"   on public.blog for all using (true);
+
+create index on public.blog (published_at desc);

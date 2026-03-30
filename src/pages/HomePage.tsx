@@ -1,11 +1,11 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Car, Key, Plus, Shield, Tag, MessageCircle, Truck, ChevronRight } from 'lucide-react'
+import { Car, Key, Plus, Shield, Tag, MessageCircle, Truck, ChevronRight, Calendar } from 'lucide-react'
 import { Button } from '@blinkdotnew/ui'
 import { VehicleCard } from '@/components/vehicles/VehicleCard'
 import { VehicleCardSkeleton } from '@/components/vehicles/VehicleCardSkeleton'
 import { supabase } from '@/blink/client'
-import { dbToVehicle } from '@/lib/db'
+import { dbToVehicle, dbToBlogPost } from '@/lib/db'
 import type { Vehicle } from '@/types'
 
 const MOCK_VEHICLES: Vehicle[] = [
@@ -41,6 +41,18 @@ const MOCK_VEHICLES: Vehicle[] = [
 
 export function HomePage() {
   const navigate = useNavigate()
+
+  const { data: latestPosts = [] } = useQuery({
+    queryKey: ['home-blog'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('blog')
+        .select('*')
+        .order('published_at', { ascending: false })
+        .limit(3)
+      return (data ?? []).map(dbToBlogPost)
+    },
+  })
 
   const { data: featuredVehicles, isLoading } = useQuery({
     queryKey: ['featured-vehicles'],
@@ -86,18 +98,7 @@ export function HomePage() {
               Achetez, louez ou vendez votre voiture en toute confiance.
               Plus de 100 véhicules disponibles à Cotonou et partout au Bénin.
             </p>
-            <div className="mt-8 flex flex-wrap gap-8">
-              {[
-                { value: '100+', label: 'Véhicules' },
-                { value: '50+', label: 'Marques' },
-                { value: 'Cotonou', label: 'Bénin' },
-              ].map((stat) => (
-                <div key={stat.label}>
-                  <p style={{ fontFamily: 'Syne, sans-serif' }} className="text-2xl font-bold text-white">{stat.value}</p>
-                  <p className="text-white/50 text-sm">{stat.label}</p>
-                </div>
-              ))}
-            </div>
+            
           </div>
         </div>
       </section>
@@ -221,6 +222,61 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── BLOG ─────────────────────────────────────────────── */}
+      {latestPosts.length > 0 && (
+        <section className="py-16 bg-secondary/30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-end justify-between mb-10">
+              <div>
+                <h2 style={{ fontFamily: 'Syne, sans-serif' }} className="text-3xl font-bold text-foreground">
+                  Derniers articles
+                </h2>
+                <p className="text-muted-foreground mt-1">Actualités et conseils auto</p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => navigate({ to: '/blog' })}
+                className="hidden sm:flex border-primary text-primary hover:bg-primary hover:text-white"
+              >
+                Voir tout <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {latestPosts.map((post) => (
+                <article
+                  key={post.id}
+                  onClick={() => navigate({ to: '/blog' })}
+                  className="bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group"
+                >
+                  <div className="aspect-video bg-secondary overflow-hidden">
+                    {post.images.length > 0 ? (
+                      <img src={post.images[0]} alt={post.titre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-4xl">📰</div>
+                    )}
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(post.publishedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </div>
+                    <h3 style={{ fontFamily: 'Syne, sans-serif' }} className="font-bold text-foreground text-base line-clamp-2 mb-2">
+                      {post.titre}
+                    </h3>
+                    <p className="text-muted-foreground text-sm line-clamp-3">{post.contenu}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="mt-8 text-center sm:hidden">
+              <Button variant="outline" onClick={() => navigate({ to: '/blog' })} className="border-primary text-primary hover:bg-primary hover:text-white">
+                Voir tous les articles
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── CTA BANNER ───────────────────────────────────────── */}
       <section className="py-16 bg-[#16181D]">

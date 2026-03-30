@@ -47,6 +47,17 @@ export interface Listing {
   updatedAt: string
 }
 
+export interface BlogPost {
+  id: string
+  titre: string
+  contenu: string
+  images: string[]
+  videos: string[]
+  publishedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Booking {
   id: string
   vehicleId: string

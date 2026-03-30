@@ -43,6 +43,12 @@ export function Navbar() {
               Location
             </Link>
             <Link
+              to="/blog"
+              className="text-white/70 hover:text-white text-sm font-medium transition-colors [&.active]:text-primary"
+            >
+              Blog
+            </Link>
+            <Link
               to="/contact"
               className="text-white/70 hover:text-white text-sm font-medium transition-colors [&.active]:text-primary"
             >
@@ -93,6 +99,13 @@ export function Navbar() {
             className="block py-2.5 text-white/80 hover:text-white text-sm font-medium border-b border-white/5"
           >
             Location
+          </Link>
+          <Link
+            to="/blog"
+            onClick={() => setOpen(false)}
+            className="block py-2.5 text-white/80 hover:text-white text-sm font-medium border-b border-white/5"
+          >
+            Blog
           </Link>
           <Link
             to="/contact"
