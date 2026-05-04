@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useLocation } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { SlidersHorizontal, X, ChevronDown, Car } from 'lucide-react'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@blinkdotnew/ui'
@@ -76,15 +76,24 @@ function FilterPanel({ filters, onChange, onReset }: { filters: CatalogueSearch;
   )
 }
 
+function getParamsFromUrl(): CatalogueSearch {
+  const p = new URLSearchParams(window.location.search)
+  return {
+    type: p.get('type') || '', brand: p.get('brand') || '',
+    minPrice: p.get('minPrice') || '', maxPrice: p.get('maxPrice') || '',
+    fuel: p.get('fuel') || '', transmission: p.get('transmission') || '',
+    sort: p.get('sort') || 'recent',
+  }
+}
+
 export function CataloguePage() {
   const navigate = useNavigate()
-  const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
-  const [filters, setFilters] = useState<CatalogueSearch>({
-    type: urlParams.get('type') || '', brand: urlParams.get('brand') || '',
-    minPrice: urlParams.get('minPrice') || '', maxPrice: urlParams.get('maxPrice') || '',
-    fuel: urlParams.get('fuel') || '', transmission: urlParams.get('transmission') || '',
-    sort: urlParams.get('sort') || 'recent',
-  })
+  const location = useLocation()
+  const [filters, setFilters] = useState<CatalogueSearch>(getParamsFromUrl)
+
+  useEffect(() => {
+    setFilters(getParamsFromUrl())
+  }, [location.search])
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
   useEffect(() => {

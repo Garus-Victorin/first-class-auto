@@ -22,10 +22,10 @@ export function HomePage() {
   })
 
   const { data: featuredVehicles, isLoading } = useQuery({
-    queryKey: ['featured-vehicles'],
+    queryKey: ['home-vehicles'],
     queryFn: async () => {
       try {
-        const res = await api.getVehicles({ featured: 1, limit: 6 })
+        const res = await api.getVehicles({ limit: 8 })
         return res.data.map(dbToVehicle)
       } catch { return [] }
     },
@@ -130,9 +130,9 @@ export function HomePage() {
           <div className="flex items-end justify-between mb-10">
             <div>
               <h2 style={{ fontFamily: 'Syne, sans-serif' }} className="text-3xl font-bold text-foreground">
-                Véhicules vedettes
+                Nos Véhicules
               </h2>
-              <p className="text-muted-foreground mt-1">Nos meilleures offres du moment</p>
+              <p className="text-muted-foreground mt-1">Découvrez notre sélection disponible</p>
             </div>
             <Button
               variant="outline"
@@ -144,8 +144,8 @@ export function HomePage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {isLoading
-              ? Array.from({ length: 4 }).map((_, i) => <VehicleCardSkeleton key={i} />)
-              : (featuredVehicles || []).slice(0, 4).map((v) => <VehicleCard key={v.id} vehicle={v} />)
+              ? Array.from({ length: 8 }).map((_, i) => <VehicleCardSkeleton key={i} />)
+              : (featuredVehicles || []).map((v) => <VehicleCard key={v.id} vehicle={v} />)
             }
           </div>
           <div className="mt-8 text-center sm:hidden">
@@ -215,8 +215,12 @@ export function HomePage() {
                   <div className="aspect-video bg-secondary overflow-hidden">
                     {post.images.length > 0 ? (
                       <img src={post.images[0]} alt={post.titre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : post.videos?.length > 0 ? (
+                      <video src={post.videos[0]} className="w-full h-full object-cover" muted playsInline preload="metadata" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-4xl">📰</div>
+                      <div className="w-full h-full flex items-center justify-center bg-secondary text-muted-foreground">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 12h6m-6-4h6" /></svg>
+                      </div>
                     )}
                   </div>
                   <div className="p-5">

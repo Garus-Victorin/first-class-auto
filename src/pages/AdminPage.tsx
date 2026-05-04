@@ -150,7 +150,14 @@ function VehicleForm({ initial, onSave, onCancel, loading }: {
         </div>
         <div>
           <label className="text-xs font-medium text-foreground mb-1 block">Type</label>
-          <select value={d.type} onChange={(e) => set('type', e.target.value)} className={selectClass}>
+          <select value={d.type} onChange={(e) => {
+            const newType = e.target.value
+            setD((p) => ({
+              ...p,
+              type: newType,
+              pricePerDay: newType === 'rental' && !p.pricePerDay ? p.price : p.pricePerDay,
+            }))
+          }} className={selectClass}>
             <option value="sale">Vente</option>
             <option value="rental">Location</option>
           </select>
@@ -272,7 +279,7 @@ function VehicleForm({ initial, onSave, onCancel, loading }: {
         <Button
           className="flex-1 bg-primary text-white hover:bg-primary/90"
           onClick={() => onSave(d)}
-          disabled={loading || uploading || !d.brand || !d.model || (d.type === 'sale' ? !d.price : !d.pricePerDay)}
+          disabled={loading || uploading || !d.brand || !d.model || (d.type === 'sale' ? !d.price : (!d.pricePerDay && !d.price))}
         >
           {loading ? 'Sauvegarde...' : 'Sauvegarder'}
         </Button>
