@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
-import { CheckCircle, ChevronRight, ChevronLeft, Car, MessageCircle } from 'lucide-react'
+import { CheckCircle, ChevronRight, ChevronLeft, Car, MessageCircle, ImageIcon } from 'lucide-react'
 import { Button, toast } from '@blinkdotnew/ui'
-import { supabase } from '@/blink/client'
+import { api, uploadFiles } from '@/blink/client'
 import { BRANDS, FUEL_TYPES, TRANSMISSIONS, LOCATIONS, formatPrice, WHATSAPP_NUMBER } from '@/lib/utils'
 
 interface FormData {
@@ -54,6 +54,9 @@ export function PublierPage() {
   const [step, setStep] = useState(0)
   const [data, setData] = useState<FormData>(INITIAL)
   const [submitted, setSubmitted] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
 
   function buildWhatsappMessage() {
     const type = data.type === 'sale' ? 'À vendre' : 'À louer'
@@ -77,7 +80,17 @@ export function PublierPage() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('listings').insert({
+      // Upload images sur Cloudinary d'abord
+      let uploadedUrls: string[] = []
+      if (imageFiles.length > 0) {
+        setUploading(true)
+        try {
+          uploadedUrls = await uploadFiles(imageFiles)
+        } finally {
+          setUploading(false)
+        }
+      }
+      await api.createListing({
         seller_name: data.sellerName,
         seller_phone: data.sellerPhone,
         seller_email: data.sellerEmail || null,
@@ -92,10 +105,8 @@ export function PublierPage() {
         color: data.color || null,
         location: data.location,
         description: data.description || null,
-        images: [],
-        status: 'pending',
+        images: uploadedUrls,
       })
-      if (error) throw error
     },
     onSuccess: () => {
       setSubmitted(true)
@@ -241,24 +252,30 @@ export function PublierPage() {
                 <textarea value={data.description} onChange={(e) => set('description', e.target.value)} placeholder="Décrivez votre véhicule..." rows={6} className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
               </FieldGroup>
               <FieldGroup label="Photos">
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-input rounded-lg cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
+                <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-input rounded-lg cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="flex flex-col items-center gap-1 text-muted-foreground">
-                    <Car className="w-8 h-8" />
-                    <span className="text-sm font-medium">Cliquez pour sélectionner des photos</span>
+                    <ImageIcon className="w-8 h-8" />
+                    <span className="text-sm font-medium">
+                      {uploading ? 'Upload en cours...' : 'Cliquez pour sélectionner des photos'}
+                    </span>
                     <span className="text-xs">JPG, PNG, WEBP — max 10 fichiers</span>
                   </div>
                   <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => {
                     const files = Array.from(e.target.files || [])
-                    const urls = files.map((f) => URL.createObjectURL(f))
-                    setData((p) => ({ ...p, images: JSON.stringify([...JSON.parse(p.images || '[]'), ...urls]) }))
+                    if (!files.length) return
+                    setImageFiles((prev) => [...prev, ...files])
+                    setImagePreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))])
                   }} />
                 </label>
-                {data.images && JSON.parse(data.images).length > 0 && (
+                {imagePreviews.length > 0 && (
                   <div className="grid grid-cols-4 gap-2 mt-3">
-                    {(JSON.parse(data.images) as string[]).map((url, i) => (
+                    {imagePreviews.map((url, i) => (
                       <div key={i} className="relative group aspect-square">
                         <img src={url} className="w-full h-full object-cover rounded-lg" />
-                        <button type="button" onClick={() => { const imgs = JSON.parse(data.images) as string[]; imgs.splice(i, 1); setData((p) => ({ ...p, images: JSON.stringify(imgs) })) }} className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                        <button type="button" onClick={() => {
+                          setImageFiles((prev) => prev.filter((_, j) => j !== i))
+                          setImagePreviews((prev) => prev.filter((_, j) => j !== i))
+                        }} className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
                       </div>
                     ))}
                   </div>
@@ -306,8 +323,8 @@ export function PublierPage() {
                 Suivant <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             ) : (
-              <Button className="bg-primary text-white hover:bg-primary/90 font-bold px-8" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-                {mutation.isPending ? 'Envoi en cours...' : 'Soumettre l\'annonce'}
+              <Button className="bg-primary text-white hover:bg-primary/90 font-bold px-8" onClick={() => mutation.mutate()} disabled={mutation.isPending || uploading}>
+                {uploading ? 'Upload images...' : mutation.isPending ? 'Envoi en cours...' : 'Soumettre l\'annonce'}
               </Button>
             )}
           </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { supabase } from '@/blink/client'
+import { api } from '@/blink/client'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -19,19 +19,14 @@ export function LoginPage() {
     if (Object.keys(newErrors).length) { setErrors(newErrors); return }
 
     setLoading(true)
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, nom, prenom')
-      .eq('email', email)
-      .eq('password', password)
-      .maybeSingle()
-    setLoading(false)
-
-    if (error || !data) {
-      setErrors({ global: 'Email ou mot de passe incorrect.' })
-    } else {
+    try {
+      const data = await api.login(email, password)
       localStorage.setItem('fca_user', JSON.stringify(data))
       navigate({ to: '/admin' })
+    } catch {
+      setErrors({ global: 'Email ou mot de passe incorrect.' })
+    } finally {
+      setLoading(false)
     }
   }
 

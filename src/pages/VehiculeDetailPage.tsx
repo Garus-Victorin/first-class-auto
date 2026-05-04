@@ -3,25 +3,10 @@ import { useParams, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { MessageCircle, Calendar, Share2, MapPin, Fuel, Settings, Gauge, Users, Palette, ChevronLeft } from 'lucide-react'
 import { Button, Badge, toast, Skeleton } from '@blinkdotnew/ui'
-import { supabase } from '@/blink/client'
+import { api } from '@/blink/client'
 import { dbToVehicle } from '@/lib/db'
 import { formatPrice, parseImages, DEFAULT_CAR_IMAGE, WHATSAPP_NUMBER } from '@/lib/utils'
 import type { Vehicle } from '@/types'
-
-const MOCK_VEHICLE: Vehicle = {
-  id: 'mock-1', brand: 'Toyota', model: 'Land Cruiser', year: 2022, price: 45000000,
-  type: 'sale', status: 'available', fuel: 'diesel', transmission: 'automatique',
-  mileage: 25000, seats: 7, color: 'Blanc Nacré', location: 'Cotonou', featured: 1, viewCount: 120,
-  images: [
-    'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=1200&q=80',
-    'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80',
-    'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80',
-    'https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=800&q=80',
-  ],
-  description: `Ce Toyota Land Cruiser 2022 est en excellent état. Importé directement du Japon, il n'a jamais été accidenté.`,
-  createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-}
-
 
 
 export function VehiculeDetailPage() {
@@ -31,9 +16,10 @@ export function VehiculeDetailPage() {
   const { data: vehicle, isLoading } = useQuery({
     queryKey: ['vehicle', id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('vehicles').select('*').eq('id', id).single()
-      if (error || !data) return MOCK_VEHICLE
-      return dbToVehicle(data)
+      try {
+        const res = await api.getVehicle(id)
+        return dbToVehicle(res)
+      } catch { return null }
     },
   })
 

@@ -5,7 +5,7 @@ import { SlidersHorizontal, X, ChevronDown, Car } from 'lucide-react'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@blinkdotnew/ui'
 import { VehicleCard } from '@/components/vehicles/VehicleCard'
 import { VehicleCardSkeleton } from '@/components/vehicles/VehicleCardSkeleton'
-import { supabase } from '@/blink/client'
+import { api } from '@/blink/client'
 import { dbToVehicle } from '@/lib/db'
 import { BRANDS, FUEL_TYPES, TRANSMISSIONS } from '@/lib/utils'
 import type { Vehicle } from '@/types'
@@ -14,15 +14,6 @@ interface CatalogueSearch {
   type?: string; brand?: string; minPrice?: string; maxPrice?: string
   fuel?: string; transmission?: string; sort?: string
 }
-
-const MOCK_VEHICLES: Vehicle[] = [
-  { id: 'c-1', brand: 'Toyota', model: 'Land Cruiser', year: 2022, price: 45000000, type: 'sale', status: 'available', fuel: 'diesel', transmission: 'automatique', mileage: 25000, seats: 7, color: 'Blanc', location: 'Cotonou', featured: 1, viewCount: 120, images: ['https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&q=80'], description: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'c-2', brand: 'Mercedes-Benz', model: 'Classe E', year: 2021, price: 38000000, type: 'sale', status: 'available', fuel: 'essence', transmission: 'automatique', mileage: 40000, seats: 5, color: 'Noir', location: 'Cotonou', featured: 1, viewCount: 95, images: ['https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&q=80'], description: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'c-3', brand: 'BMW', model: 'X5', year: 2020, price: 55000, pricePerDay: 55000, type: 'rental', status: 'available', fuel: 'diesel', transmission: 'automatique', mileage: 60000, seats: 5, color: 'Gris', location: 'Cotonou', featured: 1, viewCount: 80, images: ['https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&q=80'], description: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'c-4', brand: 'Range Rover', model: 'Sport', year: 2023, price: 75000000, type: 'sale', status: 'available', fuel: 'essence', transmission: 'automatique', mileage: 8000, seats: 5, color: 'Rouge', location: 'Porto-Novo', featured: 1, viewCount: 200, images: ['https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800&q=80'], description: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'c-5', brand: 'Lexus', model: 'LX 570', year: 2019, price: 52000000, type: 'sale', status: 'available', fuel: 'essence', transmission: 'automatique', mileage: 55000, seats: 8, color: 'Argent', location: 'Cotonou', featured: 0, viewCount: 60, images: ['https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80'], description: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'c-6', brand: 'Honda', model: 'CR-V', year: 2021, price: 18000000, type: 'sale', status: 'available', fuel: 'essence', transmission: 'automatique', mileage: 35000, seats: 5, color: 'Blanc', location: 'Cotonou', featured: 0, viewCount: 45, images: ['https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=800&q=80'], description: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-]
 
 function FilterPanel({ filters, onChange, onReset }: { filters: CatalogueSearch; onChange: (k: string, v: string) => void; onReset: () => void }) {
   return (
@@ -105,20 +96,18 @@ export function CataloguePage() {
   const { data: vehicles, isLoading } = useQuery({
     queryKey: ['catalogue', filters],
     queryFn: async () => {
-      let query = supabase.from('vehicles').select('*')
-      if (filters.type) query = query.eq('type', filters.type)
-      if (filters.brand) query = query.eq('brand', filters.brand)
-      if (filters.fuel) query = query.eq('fuel', filters.fuel)
-      if (filters.transmission) query = query.eq('transmission', filters.transmission)
-      if (filters.minPrice) query = query.gte('price', Number(filters.minPrice))
-      if (filters.maxPrice) query = query.lte('price', Number(filters.maxPrice))
-      if (filters.sort === 'price_asc') query = query.order('price', { ascending: true })
-      else if (filters.sort === 'price_desc') query = query.order('price', { ascending: false })
-      else query = query.order('created_at', { ascending: false })
-      query = query.limit(50)
-      const { data, error } = await query
-      if (error || !data?.length) return MOCK_VEHICLES
-      return data.map(dbToVehicle)
+      const params: Record<string, string> = { limit: '50' }
+      if (filters.type) params.type = filters.type
+      if (filters.brand) params.brand = filters.brand
+      if (filters.fuel) params.fuel = filters.fuel
+      if (filters.transmission) params.transmission = filters.transmission
+      if (filters.minPrice) params.minPrice = filters.minPrice
+      if (filters.maxPrice) params.maxPrice = filters.maxPrice
+      if (filters.sort) params.sort = filters.sort
+      try {
+        const res = await api.getVehicles(params)
+        return res.data.map(dbToVehicle)
+      } catch { return [] }
     },
   })
 

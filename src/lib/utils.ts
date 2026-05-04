@@ -20,10 +20,29 @@ export function parseImages(images: string | string[]): string[] {
 }
 
 export const BRANDS = [
-  'Toyota', 'Mercedes-Benz', 'BMW', 'Audi', 'Range Rover', 'Lexus',
-  'Honda', 'Hyundai', 'Kia', 'Nissan', 'Peugeot', 'Renault',
-  'Volkswagen', 'Ford', 'Mitsubishi',
-]
+  // Japonaises (très présentes en Afrique)
+  'Toyota', 'Honda', 'Nissan', 'Mitsubishi', 'Mazda', 'Suzuki', 'Subaru', 'Isuzu', 'Daihatsu',
+  // Coréennes
+  'Hyundai', 'Kia', 'SsangYong',
+  // Allemandes
+  'Mercedes-Benz', 'BMW', 'Audi', 'Volkswagen', 'Opel',
+  // Françaises
+  'Peugeot', 'Renault', 'Citroën',
+  // Américaines
+  'Ford', 'Chevrolet', 'Jeep', 'Dodge', 'GMC',
+  // Britanniques
+  'Range Rover', 'Land Rover', 'Jaguar',
+  // Italiennes
+  'Fiat', 'Alfa Romeo',
+  // Chinoises (très présentes en Afrique)
+  'Chery', 'Geely', 'BYD', 'BAIC', 'JAC', 'Haval', 'MG', 'Dongfeng', 'Foton', 'Lifan', 'Changan', 'DFSK', 'Brilliance', 'Zotye',
+  // Indiennes
+  'Tata', 'Mahindra',
+  // Luxe
+  'Lexus', 'Infiniti', 'Acura', 'Volvo', 'Porsche', 'Maserati',
+  // Utilitaires / Pick-up
+  'Iveco', 'Hino', 'Dacia',
+].sort()
 
 export const FUEL_TYPES = ['essence', 'diesel', 'hybride', 'électrique']
 export const TRANSMISSIONS = ['automatique', 'manuelle']

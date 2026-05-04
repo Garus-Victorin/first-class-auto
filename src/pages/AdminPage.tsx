@@ -1,17 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from '@tanstack/react-router'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   LayoutDashboard, Car, FileText,
   Plus, Pencil, Trash2, Check, X, Eye, LogOut, Lock, Users,
-  ImageIcon, VideoIcon, Search, ArrowUpRight, Newspaper, Store,
+  ImageIcon, VideoIcon, Search, Newspaper, Store,
+  ThumbsUp, MessageCircle, Share2, Send, BarChart2, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import {
   Button, Badge, Dialog, DialogContent, DialogHeader, DialogTitle,
   DataTable, StatGroup, Stat, toast, Skeleton,
 } from '@blinkdotnew/ui'
 import type { ColumnDef } from '@tanstack/react-table'
-import { supabase } from '@/blink/client'
+import { api, uploadFiles } from '@/blink/client'
 import { dbToVehicle, dbToListing, dbToBlogPost } from '@/lib/db'
 import { BRANDS, FUEL_TYPES, TRANSMISSIONS, LOCATIONS, formatPrice, parseImages, DEFAULT_CAR_IMAGE } from '@/lib/utils'
 import type { Vehicle, Listing, BlogPost } from '@/types'
@@ -33,7 +34,7 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (pw === 'admin123') {
+    if (pw === (import.meta.env.VITE_ADMIN_PASSWORD || 'admin123')) {
       localStorage.setItem('fca_admin', 'true')
       onUnlock()
     } else {
@@ -105,38 +106,26 @@ function VehicleForm({ initial, onSave, onCancel, loading }: {
   const [uploading, setUploading] = useState(false)
   const set = (k: keyof VehicleFormData, v: string) => setD((p) => ({ ...p, [k]: v }))
 
-  async function uploadFiles(files: File[], bucket: string, folder: string): Promise<string[]> {
-    const urls: string[] = []
-    for (const file of files) {
-      const ext = file.name.split('.').pop()
-      const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error } = await supabase.storage.from(bucket).upload(path, file)
-      if (!error) {
-        const { data } = supabase.storage.from(bucket).getPublicUrl(path)
-        urls.push(data.publicUrl)
-      }
-    }
-    return urls
-  }
-
   async function handleImages(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
     setUploading(true)
-    const urls = await uploadFiles(files, 'vehicles-images', 'photos')
-    const existing = d.images ? d.images.split('\n').filter(Boolean) : []
-    set('images', [...existing, ...urls].join('\n'))
-    setUploading(false)
+    try {
+      const urls = await uploadFiles(files)
+      const existing = d.images ? d.images.split('\n').filter(Boolean) : []
+      set('images', [...existing, ...urls].join('\n'))
+    } finally { setUploading(false) }
   }
 
   async function handleVideos(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
     setUploading(true)
-    const urls = await uploadFiles(files, 'vehicles-videos', 'videos')
-    const existing = d.videos ? d.videos.split('\n').filter(Boolean) : []
-    set('videos', [...existing, ...urls].join('\n'))
-    setUploading(false)
+    try {
+      const urls = await uploadFiles(files)
+      const existing = d.videos ? d.videos.split('\n').filter(Boolean) : []
+      set('videos', [...existing, ...urls].join('\n'))
+    } finally { setUploading(false) }
   }
 
   return (
@@ -317,35 +306,26 @@ function BlogForm({ initial, onSave, onCancel, loading }: {
   const [uploading, setUploading] = useState(false)
   const set = (k: keyof BlogFormData, v: string) => setD((p) => ({ ...p, [k]: v }))
 
-  async function uploadFiles(files: File[], bucket: string, folder: string): Promise<string[]> {
-    const urls: string[] = []
-    for (const file of files) {
-      const ext = file.name.split('.').pop()
-      const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error } = await supabase.storage.from(bucket).upload(path, file)
-      if (!error) urls.push(supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl)
-    }
-    return urls
-  }
-
   async function handleImages(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
     setUploading(true)
-    const urls = await uploadFiles(files, 'vehicles-images', 'blog')
-    const existing = d.images ? d.images.split('\n').filter(Boolean) : []
-    set('images', [...existing, ...urls].join('\n'))
-    setUploading(false)
+    try {
+      const urls = await uploadFiles(files)
+      const existing = d.images ? d.images.split('\n').filter(Boolean) : []
+      set('images', [...existing, ...urls].join('\n'))
+    } finally { setUploading(false) }
   }
 
   async function handleVideos(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
     setUploading(true)
-    const urls = await uploadFiles(files, 'vehicles-videos', 'blog')
-    const existing = d.videos ? d.videos.split('\n').filter(Boolean) : []
-    set('videos', [...existing, ...urls].join('\n'))
-    setUploading(false)
+    try {
+      const urls = await uploadFiles(files)
+      const existing = d.videos ? d.videos.split('\n').filter(Boolean) : []
+      set('videos', [...existing, ...urls].join('\n'))
+    } finally { setUploading(false) }
   }
 
   return (
@@ -423,6 +403,87 @@ function BlogForm({ initial, onSave, onCancel, loading }: {
   )
 }
 
+function AdminPostStats({ postId }: { postId: string }) {
+  const [showComments, setShowComments] = useState(false)
+  const qc = useQueryClient()
+
+  const { data: stats } = useQuery({
+    queryKey: ['admin-post-stats', postId],
+    queryFn: () => api.getPostStats(postId),
+  })
+
+  const { data: comments = [] } = useQuery({
+    queryKey: ['admin-comments', postId],
+    queryFn: async () => {
+      const data = await api.getComments(postId)
+      return data as { id: string; author_name: string; content: string; created_at: string }[]
+    },
+    enabled: showComments,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.deleteComment(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-comments', postId] })
+      qc.invalidateQueries({ queryKey: ['admin-post-stats', postId] })
+    },
+  })
+
+  return (
+    <div className="border-t border-border">
+      {/* Stats row */}
+      <div className="flex items-center gap-4 px-4 py-2.5">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <ThumbsUp className="w-3.5 h-3.5 text-primary" />
+          <span className="font-medium text-foreground">{stats?.likes ?? 0}</span> J'aime
+        </div>
+        <button
+          onClick={() => setShowComments(s => !s)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <MessageCircle className="w-3.5 h-3.5" />
+          <span className="font-medium text-foreground">{stats?.comments ?? 0}</span> commentaire{(stats?.comments ?? 0) > 1 ? 's' : ''}
+          {showComments ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
+          <BarChart2 className="w-3.5 h-3.5" />
+          <span>Portée estimée</span>
+        </div>
+      </div>
+
+      {/* Comments list */}
+      {showComments && (
+        <div className="px-4 pb-3 space-y-2 border-t border-border pt-2">
+          {comments.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-2">Aucun commentaire</p>
+          ) : (
+            comments.map((c) => (
+              <div key={c.id} className="flex items-start gap-2 group">
+                <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0 text-xs font-bold">
+                  {c.author_name[0].toUpperCase()}
+                </div>
+                <div className="flex-1 bg-secondary rounded-2xl px-3 py-1.5">
+                  <p className="text-xs font-semibold text-foreground">{c.author_name}</p>
+                  <p className="text-xs text-foreground/80">{c.content}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {new Date(c.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                  </p>
+                </div>
+                <button
+                  onClick={() => deleteMutation.mutate(c.id)}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function BlogTab({ posts, refetch }: { posts: BlogPost[]; refetch: () => void }) {
   const [addOpen, setAddOpen] = useState(false)
   const [editPost, setEditPost] = useState<BlogPost | null>(null)
@@ -432,12 +493,11 @@ function BlogTab({ posts, refetch }: { posts: BlogPost[]; refetch: () => void })
     mutationFn: async (d: BlogFormData) => {
       const imgs = d.images.split('\n').map((s) => s.trim()).filter(Boolean)
       const vids = d.videos.split('\n').map((s) => s.trim()).filter(Boolean)
-      const { error } = await supabase.from('blog').insert({
+      await api.createPost({
         titre: d.titre, contenu: d.contenu,
-        images: JSON.stringify(imgs), videos: JSON.stringify(vids),
+        images: imgs, videos: vids,
         published_at: new Date(d.publishedAt).toISOString(),
       })
-      if (error) throw new Error(error.message)
     },
     onSuccess: () => { toast.success('Article publié !'); setAddOpen(false); refetch() },
     onError: (e: unknown) => toast.error('Erreur : ' + (e instanceof Error ? e.message : String(e))),
@@ -447,22 +507,18 @@ function BlogTab({ posts, refetch }: { posts: BlogPost[]; refetch: () => void })
     mutationFn: async ({ id, d }: { id: string; d: BlogFormData }) => {
       const imgs = d.images.split('\n').map((s) => s.trim()).filter(Boolean)
       const vids = d.videos.split('\n').map((s) => s.trim()).filter(Boolean)
-      const { error } = await supabase.from('blog').update({
+      await api.updatePost(id, {
         titre: d.titre, contenu: d.contenu,
-        images: JSON.stringify(imgs), videos: JSON.stringify(vids),
+        images: imgs, videos: vids,
         published_at: new Date(d.publishedAt).toISOString(),
-      }).eq('id', id)
-      if (error) throw new Error(error.message)
+      })
     },
     onSuccess: () => { toast.success('Article mis à jour !'); setEditPost(null); refetch() },
     onError: (e: unknown) => toast.error('Erreur : ' + (e instanceof Error ? e.message : String(e))),
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('blog').delete().eq('id', id)
-      if (error) throw error
-    },
+    mutationFn: async (id: string) => { await api.deletePost(id) },
     onSuccess: () => { toast.success('Article supprimé'); setDeleteId(null); refetch() },
     onError: () => toast.error('Erreur lors de la suppression'),
   })
@@ -475,64 +531,118 @@ function BlogTab({ posts, refetch }: { posts: BlogPost[]; refetch: () => void })
     }
   }
 
+  function formatDate(iso: string) {
+    const d = new Date(iso)
+    const now = new Date()
+    const diff = Math.floor((now.getTime() - d.getTime()) / 1000)
+    if (diff < 60) return "À l'instant"
+    if (diff < 3600) return `Il y a ${Math.floor(diff / 60)} min`
+    if (diff < 86400) return `Il y a ${Math.floor(diff / 3600)} h`
+    if (diff < 604800) return `Il y a ${Math.floor(diff / 86400)} j`
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  }
+
+  function MediaGrid({ images, videos }: { images: string[]; videos: string[] }) {
+    if (videos.length > 0) return (
+      <div className="bg-black">
+        {videos.map((v, i) => <video key={i} src={v} controls className="w-full max-h-80 object-contain" />)}
+        {images.length > 0 && (
+          <div className={`grid gap-0.5 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            {images.map((img, i) => <img key={i} src={img} className="w-full aspect-square object-cover" />)}
+          </div>
+        )}
+      </div>
+    )
+    if (images.length === 0) return null
+    if (images.length === 1) return <img src={images[0]} className="w-full max-h-80 object-cover" />
+    if (images.length === 2) return (
+      <div className="grid grid-cols-2 gap-0.5">
+        {images.map((img, i) => <img key={i} src={img} className="w-full aspect-square object-cover" />)}
+      </div>
+    )
+    return (
+      <div className="grid grid-cols-2 gap-0.5">
+        <img src={images[0]} className="w-full aspect-square object-cover" style={{ gridRow: 'span 2' }} />
+        <img src={images[1]} className="w-full aspect-square object-cover" />
+        <div className="relative">
+          <img src={images[2]} className="w-full aspect-square object-cover" />
+          {images.length > 3 && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <span className="text-white text-xl font-bold">+{images.length - 3}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 style={{ fontFamily: 'Syne, sans-serif' }} className="text-base font-bold text-foreground">
-          {posts.length} article(s)
-        </h3>
-        <Button size="sm" onClick={() => setAddOpen(true)} className="bg-primary text-white hover:bg-primary/90">
-          <Plus className="w-4 h-4 mr-1" /> Nouvel article
-        </Button>
+    <div className="max-w-2xl mx-auto space-y-4">
+      {/* Composer style Facebook */}
+      <div className="bg-card border border-border rounded-xl p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shrink-0">
+            <span className="text-white font-bold text-sm">FCA</span>
+          </div>
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex-1 h-10 px-4 rounded-full bg-secondary text-muted-foreground text-sm text-left hover:bg-secondary/80 transition-colors"
+          >
+            Publier un article…
+          </button>
+        </div>
+        <div className="border-t border-border pt-3 flex justify-center">
+          <Button size="sm" onClick={() => setAddOpen(true)} className="bg-primary text-white hover:bg-primary/90 w-full">
+            <Plus className="w-4 h-4 mr-1" /> Nouvel article
+          </Button>
+        </div>
       </div>
 
+      {/* Feed */}
       {posts.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground text-sm">Aucun article</div>
+        <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground text-sm">
+          Aucun article publié.
+        </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {posts.map((p) => (
-            <div key={p.id} className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
-              {p.images.length > 0 && (
-                <div className="aspect-video bg-secondary">
-                  <img src={p.images[0]} alt={p.titre} className="w-full h-full object-cover" />
+        posts.map((p) => (
+          <div key={p.id} className="bg-card border border-border rounded-xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shrink-0">
+                  <span className="text-white font-bold text-sm">FCA</span>
                 </div>
-              )}
-              <div className="p-4">
-                <p style={{ fontFamily: 'Syne, sans-serif' }} className="font-bold text-foreground text-sm line-clamp-2 mb-1">{p.titre}</p>
-                <p className="text-xs text-muted-foreground mb-2">
-                  {new Date(p.publishedAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
-                </p>
-                {p.images.length > 1 && (
-                  <p className="text-xs text-muted-foreground mb-1">{p.images.length} images</p>
-                )}
-                <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{p.contenu}</p>
-                {p.videos.length > 0 && (
-                  <div className="mb-3 space-y-1.5">
-                    {p.videos.map((v, i) => (
-                      <video key={i} src={v} className="w-full h-20 object-cover rounded-lg bg-secondary" controls />
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setEditPost(p)}
-                    className="flex-1 flex items-center justify-center gap-1 h-8 rounded-lg border border-border hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <Pencil className="w-3 h-3" /> Modifier
-                  </button>
-                  <button
-                    onClick={() => setDeleteId(p.id)}
-                    className="flex items-center justify-center w-8 h-8 rounded-lg border border-border hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                <div>
+                  <p style={{ fontFamily: 'Syne, sans-serif' }} className="font-bold text-foreground text-sm">First Class Auto</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(p.publishedAt)} · 🌍</p>
                 </div>
               </div>
+              <div className="flex gap-1">
+                <button onClick={() => setEditPost(p)} className="p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => setDeleteId(p.id)} className="p-2 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          ))}
-        </div>
+
+            {/* Text */}
+            <div className="px-4 pb-3">
+              {p.titre && <p style={{ fontFamily: 'Syne, sans-serif' }} className="font-bold text-foreground text-base mb-1">{p.titre}</p>}
+              <p className="text-sm text-foreground/80 leading-relaxed line-clamp-4">{p.contenu}</p>
+            </div>
+
+            {/* Media */}
+            <MediaGrid images={p.images} videos={p.videos} />
+
+            {/* Stats bar */}
+            <AdminPostStats postId={p.id} />
+          </div>
+        ))
       )}
 
+      {/* Dialogs */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-2xl" aria-describedby={undefined}>
           <DialogHeader><DialogTitle>Nouvel article</DialogTitle></DialogHeader>
@@ -556,15 +666,13 @@ function BlogTab({ posts, refetch }: { posts: BlogPost[]; refetch: () => void })
 
       <Dialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <DialogContent className="max-w-sm" aria-describedby={undefined}>
-          <DialogHeader><DialogTitle>Confirmer la suppression</DialogTitle></DialogHeader>
-          <p className="text-muted-foreground text-sm">Cet article sera supprimé définitivement.</p>
+          <DialogHeader><DialogTitle>Supprimer l'article ?</DialogTitle></DialogHeader>
+          <p className="text-muted-foreground text-sm">Cette action est irréversible.</p>
           <div className="flex gap-3 mt-4">
             <Button variant="outline" onClick={() => setDeleteId(null)} className="flex-1">Annuler</Button>
-            <Button
-              className="flex-1 bg-destructive text-white hover:bg-destructive/90"
+            <Button className="flex-1 bg-destructive text-white hover:bg-destructive/90"
               onClick={() => deleteId && deleteMutation.mutate(deleteId)}
-              disabled={deleteMutation.isPending}
-            >
+              disabled={deleteMutation.isPending}>
               {deleteMutation.isPending ? 'Suppression...' : 'Supprimer'}
             </Button>
           </div>
@@ -736,7 +844,7 @@ function VehiclesTab({ vehicles, refetch }: { vehicles: Vehicle[]; refetch: () =
       const imgs = d.images.split('\n').map((s) => s.trim()).filter(Boolean)
       const vids = d.videos.split('\n').map((s) => s.trim()).filter(Boolean)
       const finalPrice = d.type === 'rental' ? Number(d.pricePerDay) : Number(d.price)
-      const { error } = await supabase.from('vehicles').insert({
+      await api.createVehicle({
         brand: d.brand, model: d.model, year: Number(d.year),
         price: finalPrice,
         price_per_day: d.type === 'rental' ? finalPrice : (d.pricePerDay ? Number(d.pricePerDay) : null),
@@ -745,10 +853,9 @@ function VehiclesTab({ vehicles, refetch }: { vehicles: Vehicle[]; refetch: () =
         mileage: Number(d.mileage), seats: Number(d.seats),
         color: d.color || null, location: d.location,
         description: d.description || null,
-        images: JSON.stringify(imgs), videos: JSON.stringify(vids),
-        featured: Number(d.featured), view_count: 0,
+        images: imgs, videos: vids,
+        featured: Number(d.featured),
       })
-      if (error) throw new Error(error.message + ' | ' + (error.details ?? '') + ' | code:' + error.code)
     },
     onSuccess: () => { toast.success('Véhicule ajouté !'); setAddOpen(false); refetch() },
     onError: (e: unknown) => toast.error('Erreur lors de l\'ajout : ' + (e instanceof Error ? e.message : String(e))),
@@ -759,7 +866,7 @@ function VehiclesTab({ vehicles, refetch }: { vehicles: Vehicle[]; refetch: () =
       const imgs = d.images.split('\n').map((s) => s.trim()).filter(Boolean)
       const vids = d.videos.split('\n').map((s) => s.trim()).filter(Boolean)
       const finalPrice = d.type === 'rental' ? Number(d.pricePerDay) : Number(d.price)
-      const { error } = await supabase.from('vehicles').update({
+      await api.updateVehicle(id, {
         brand: d.brand, model: d.model, year: Number(d.year),
         price: finalPrice,
         price_per_day: d.type === 'rental' ? finalPrice : (d.pricePerDay ? Number(d.pricePerDay) : null),
@@ -768,20 +875,16 @@ function VehiclesTab({ vehicles, refetch }: { vehicles: Vehicle[]; refetch: () =
         mileage: Number(d.mileage), seats: Number(d.seats),
         color: d.color || null, location: d.location,
         description: d.description || null,
-        images: JSON.stringify(imgs), videos: JSON.stringify(vids),
+        images: imgs, videos: vids,
         featured: Number(d.featured),
-      }).eq('id', id)
-      if (error) throw new Error(error.message + ' | ' + (error.details ?? '') + ' | code:' + error.code)
+      })
     },
     onSuccess: () => { toast.success('Véhicule mis à jour !'); setEditVehicle(null); refetch() },
     onError: (e: unknown) => toast.error('Erreur mise à jour : ' + (e instanceof Error ? e.message : String(e))),
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('vehicles').delete().eq('id', id)
-      if (error) throw error
-    },
+    mutationFn: async (id: string) => { await api.deleteVehicle(id) },
     onSuccess: () => { toast.success('Véhicule supprimé'); setDeleteId(null); refetch() },
     onError: () => toast.error('Erreur lors de la suppression'),
   })
@@ -975,15 +1078,9 @@ function VehiclesTab({ vehicles, refetch }: { vehicles: Vehicle[]; refetch: () =
 function ListingsTab({ listings, refetch }: { listings: Listing[]; refetch: () => void }) {
   const [detailListing, setDetailListing] = useState<Listing | null>(null)
 
-  // Debug: log pour voir ce qui arrive
-  useEffect(() => {
-    console.log('[ListingsTab] listings count:', listings.length, listings)
-  }, [listings])
-
   const updateMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from('listings').update({ status }).eq('id', id)
-      if (error) throw error
+      await api.updateListingStatus(id, status)
     },
     onSuccess: () => { toast.success('Statut mis à jour'); refetch() },
     onError: () => toast.error('Erreur'),
@@ -1013,7 +1110,7 @@ function ListingsTab({ listings, refetch }: { listings: Listing[]; refetch: () =
                 {/* Image */}
                 <div className="relative aspect-[4/3] bg-secondary">
                   <img
-                    src={imgs[0] || 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&q=80'}
+                    src={imgs[0] || DEFAULT_CAR_IMAGE}
                     alt={`${l.brand} ${l.model}`}
                     className="w-full h-full object-cover"
                   />
@@ -1120,8 +1217,7 @@ function ListingsTab({ listings, refetch }: { listings: Listing[]; refetch: () =
 function BookingsTab({ bookings, refetch }: { bookings: Booking[]; refetch: () => void }) {
   const updateMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from('bookings').update({ status }).eq('id', id)
-      if (error) throw error
+      await api.updateBookingStatus(id, status)
     },
     onSuccess: () => { toast.success('Statut mis à jour'); refetch() },
     onError: () => toast.error('Erreur'),
@@ -1275,10 +1371,7 @@ function UsersTab({ users, refetch }: { users: User[]; refetch: () => void }) {
 
   const createMutation = useMutation({
     mutationFn: async (data: UserFormData) => {
-      const { error } = await supabase.from('users').insert({
-        nom: data.nom, prenom: data.prenom, email: data.email, password: data.password,
-      })
-      if (error) throw error
+      await api.createUser({ nom: data.nom, prenom: data.prenom, email: data.email, password: data.password })
     },
     onSuccess: () => { toast.success('Utilisateur ajouté !'); setAddOpen(false); refetch() },
     onError: () => toast.error('Erreur lors de l\'ajout'),
@@ -1286,20 +1379,14 @@ function UsersTab({ users, refetch }: { users: User[]; refetch: () => void }) {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UserFormData }) => {
-      const { error } = await supabase.from('users').update({
-        nom: data.nom, prenom: data.prenom, email: data.email, password: data.password,
-      }).eq('id', id)
-      if (error) throw error
+      await api.updateUser(id, { nom: data.nom, prenom: data.prenom, email: data.email, password: data.password })
     },
     onSuccess: () => { toast.success('Utilisateur mis à jour !'); setEditUser(null); refetch() },
     onError: () => toast.error('Erreur lors de la mise à jour'),
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('users').delete().eq('id', id)
-      if (error) throw error
-    },
+    mutationFn: async (id: string) => { await api.deleteUser(id) },
     onSuccess: () => { toast.success('Utilisateur supprimé'); setDeleteId(null); refetch() },
     onError: () => toast.error('Erreur lors de la suppression'),
   })
@@ -1474,9 +1561,8 @@ export function AdminPage() {
   const { data: vehicles = [], isLoading: vLoading, refetch: refetchV } = useQuery({
     queryKey: ['admin-vehicles'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('vehicles').select('*').order('created_at', { ascending: false }).limit(200)
-      if (error) throw new Error(error.message)
-      return (data ?? []).map(dbToVehicle)
+      const res = await api.getVehicles({ limit: 200 })
+      return res.data.map(dbToVehicle)
     },
     enabled: unlocked,
     retry: 1,
@@ -1485,9 +1571,8 @@ export function AdminPage() {
   const { data: listings = [], isLoading: lLoading, refetch: refetchL } = useQuery({
     queryKey: ['admin-listings'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('listings').select('*').order('created_at', { ascending: false }).limit(200)
-      if (error) throw new Error(error.message)
-      return (data ?? []).map(dbToListing)
+      const res = await api.getListings({ limit: 200 })
+      return res.data.map(dbToListing)
     },
     enabled: unlocked,
     retry: 1,
@@ -1496,9 +1581,8 @@ export function AdminPage() {
   const { data: posts = [], isLoading: bLoading, refetch: refetchB } = useQuery({
     queryKey: ['admin-blog'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('blog').select('*').order('published_at', { ascending: false }).limit(200)
-      if (error) throw new Error(error.message)
-      return (data ?? []).map(dbToBlogPost)
+      const res = await api.getBlog({ limit: 200 })
+      return res.data.map(dbToBlogPost)
     },
     enabled: unlocked,
   })
@@ -1506,14 +1590,10 @@ export function AdminPage() {
   const { data: users = [], isLoading: uLoading, refetch: refetchU } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
-      const { data } = await supabase.from('users').select('*').order('created_at', { ascending: false }).limit(200)
-      return (data ?? []).map((r) => ({
-        id: r.id,
-        nom: r.nom,
-        prenom: r.prenom,
-        email: r.email,
-        password: r.password,
-        createdAt: r.created_at,
+      const data = await api.getUsers()
+      return data.map((r: any) => ({
+        id: r.id, nom: r.nom, prenom: r.prenom,
+        email: r.email, password: r.password, createdAt: r.created_at,
       })) as User[]
     },
     enabled: unlocked,

@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# IDE / tools
+.qodify/
+
+# DB scripts (contiennent des infos sensibles)
+supabase.sql

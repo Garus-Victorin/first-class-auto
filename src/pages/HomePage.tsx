@@ -4,40 +4,9 @@ import { Car, Key, Plus, Shield, Tag, MessageCircle, Truck, ChevronRight, Calend
 import { Button } from '@blinkdotnew/ui'
 import { VehicleCard } from '@/components/vehicles/VehicleCard'
 import { VehicleCardSkeleton } from '@/components/vehicles/VehicleCardSkeleton'
-import { supabase } from '@/blink/client'
+import { api } from '@/blink/client'
 import { dbToVehicle, dbToBlogPost } from '@/lib/db'
 import type { Vehicle } from '@/types'
-
-const MOCK_VEHICLES: Vehicle[] = [
-  {
-    id: 'mock-1', brand: 'Toyota', model: 'Land Cruiser', year: 2022, price: 45000000,
-    type: 'sale', status: 'available', fuel: 'diesel', transmission: 'automatique',
-    mileage: 25000, seats: 7, color: 'Blanc', location: 'Cotonou', featured: 1,
-    viewCount: 120, images: ['https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&q=80'],
-    description: 'Excellent état, entretien régulier.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'mock-2', brand: 'Mercedes-Benz', model: 'Classe E', year: 2021, price: 38000000,
-    type: 'sale', status: 'available', fuel: 'essence', transmission: 'automatique',
-    mileage: 40000, seats: 5, color: 'Noir', location: 'Cotonou', featured: 1,
-    viewCount: 95, images: ['https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&q=80'],
-    description: 'Parfait état, toutes options.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'mock-3', brand: 'BMW', model: 'X5', year: 2020, price: 55000, pricePerDay: 55000,
-    type: 'rental', status: 'available', fuel: 'diesel', transmission: 'automatique',
-    mileage: 60000, seats: 5, color: 'Gris', location: 'Cotonou', featured: 1,
-    viewCount: 80, images: ['https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&q=80'],
-    description: 'Location courte et longue durée.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'mock-4', brand: 'Range Rover', model: 'Sport', year: 2023, price: 75000000,
-    type: 'sale', status: 'available', fuel: 'essence', transmission: 'automatique',
-    mileage: 8000, seats: 5, color: 'Rouge', location: 'Porto-Novo', featured: 1,
-    viewCount: 200, images: ['https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800&q=80'],
-    description: 'Neuf, importé directement.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-  },
-]
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -45,26 +14,20 @@ export function HomePage() {
   const { data: latestPosts = [] } = useQuery({
     queryKey: ['home-blog'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('blog')
-        .select('*')
-        .order('published_at', { ascending: false })
-        .limit(3)
-      return (data ?? []).map(dbToBlogPost)
+      try {
+        const res = await api.getBlog({ limit: 3 })
+        return res.data.map(dbToBlogPost)
+      } catch { return [] }
     },
   })
 
   const { data: featuredVehicles, isLoading } = useQuery({
     queryKey: ['featured-vehicles'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vehicles')
-        .select('*')
-        .eq('featured', 1)
-        .order('created_at', { ascending: false })
-        .limit(6)
-      if (error || !data?.length) return MOCK_VEHICLES
-      return data.map(dbToVehicle)
+      try {
+        const res = await api.getVehicles({ featured: 1, limit: 6 })
+        return res.data.map(dbToVehicle)
+      } catch { return [] }
     },
   })
 
@@ -182,7 +145,7 @@ export function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {isLoading
               ? Array.from({ length: 4 }).map((_, i) => <VehicleCardSkeleton key={i} />)
-              : (featuredVehicles || MOCK_VEHICLES).slice(0, 4).map((v) => <VehicleCard key={v.id} vehicle={v} />)
+              : (featuredVehicles || []).slice(0, 4).map((v) => <VehicleCard key={v.id} vehicle={v} />)
             }
           </div>
           <div className="mt-8 text-center sm:hidden">
