@@ -41,9 +41,10 @@ export function getSessionId(): string {
 
 export const api = {
   // vehicles (public read, auth write)
-  getVehicles: (params?: Record<string, string | number>) => {
+  getVehicles: async (params?: Record<string, string | number>) => {
     const qs = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : ''
-    return req<{ data: unknown[]; total: number; limit: number; offset: number }>('GET', `/api/vehicles${qs}`)
+    const res = await req<{ data: unknown[]; total: number } | unknown[]>('GET', `/api/vehicles${qs}`)
+    return Array.isArray(res) ? { data: res, total: res.length } : res
   },
   getVehicle: (id: string) => req<unknown>('GET', `/api/vehicles/${id}`),
   createVehicle: (data: unknown) => req<unknown>('POST', '/api/vehicles', data, true),
@@ -51,17 +52,19 @@ export const api = {
   deleteVehicle: (id: string) => req<unknown>('DELETE', `/api/vehicles/${id}`, undefined, true),
 
   // listings
-  getListings: (params?: Record<string, string | number>) => {
+  getListings: async (params?: Record<string, string | number>) => {
     const qs = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : ''
-    return req<{ data: unknown[]; total: number }>('GET', `/api/listings${qs}`, undefined, true)
+    const res = await req<{ data: unknown[]; total: number } | unknown[]>('GET', `/api/listings${qs}`, undefined, true)
+    return Array.isArray(res) ? { data: res, total: res.length } : res
   },
   createListing: (data: unknown) => req<unknown>('POST', '/api/listings', data),
   updateListingStatus: (id: string, status: string) => req<unknown>('PATCH', `/api/listings/${id}`, { status }, true),
 
   // blog
-  getBlog: (params?: Record<string, string | number>) => {
+  getBlog: async (params?: Record<string, string | number>) => {
     const qs = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : ''
-    return req<{ data: unknown[]; total: number }>('GET', `/api/blog${qs}`)
+    const res = await req<{ data: unknown[]; total: number } | unknown[]>('GET', `/api/blog${qs}`)
+    return Array.isArray(res) ? { data: res, total: res.length } : res
   },
   createPost: (data: unknown) => req<unknown>('POST', '/api/blog', data, true),
   updatePost: (id: string, data: unknown) => req<unknown>('PUT', `/api/blog/${id}`, data, true),

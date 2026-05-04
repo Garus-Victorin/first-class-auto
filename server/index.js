@@ -370,4 +370,10 @@ app.patch('/api/bookings/:id', async (req, res) => {
 })
 
 const PORT = process.env.PORT || 3002
-app.listen(PORT, () => console.log(`API server running on port ${PORT}`))
+const server = app.listen(PORT, () => console.log(`API server running on port ${server.address().port}`))
+server.on('error', (e) => {
+  if (e.code === 'EADDRINUSE') {
+    console.log(`Port ${PORT} in use, trying ${Number(PORT) + 1}...`)
+    server.listen(Number(PORT) + 1)
+  }
+})
