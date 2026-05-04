@@ -1,11 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MessageCircle, Phone, MapPin, Clock, Send } from 'lucide-react'
 import { Button, toast } from '@blinkdotnew/ui'
 import { WHATSAPP_NUMBER, PHONE_NUMBER } from '@/lib/utils'
+import { setPageSEO, PAGE_SEO } from '@/lib/seo'
 
 export function ContactPage() {
   const [form, setForm] = useState({ name: '', phone: '', email: '', message: '' })
   const [sent, setSent] = useState(false)
+
+  useEffect(() => {
+    const s = PAGE_SEO.contact
+    setPageSEO(s.title, s.description, s.path)
+  }, [])
 
   function sendToWhatsApp() {
     const text = encodeURIComponent(

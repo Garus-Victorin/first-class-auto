@@ -8,6 +8,7 @@ import { VehicleCardSkeleton } from '@/components/vehicles/VehicleCardSkeleton'
 import { api } from '@/blink/client'
 import { dbToVehicle } from '@/lib/db'
 import { BRANDS, FUEL_TYPES, TRANSMISSIONS } from '@/lib/utils'
+import { setPageSEO, PAGE_SEO } from '@/lib/seo'
 import type { Vehicle } from '@/types'
 
 interface CatalogueSearch {
@@ -93,6 +94,13 @@ export function CataloguePage() {
 
   useEffect(() => {
     setFilters(getParamsFromUrl())
+  }, [location.search])
+
+  useEffect(() => {
+    const type = new URLSearchParams(location.search).get('type')
+    if (type === 'sale') setPageSEO(PAGE_SEO.catalogueSale.title, PAGE_SEO.catalogueSale.description, PAGE_SEO.catalogueSale.path)
+    else if (type === 'rental') setPageSEO(PAGE_SEO.catalogueRental.title, PAGE_SEO.catalogueRental.description, PAGE_SEO.catalogueRental.path)
+    else setPageSEO(PAGE_SEO.catalogue.title, PAGE_SEO.catalogue.description, PAGE_SEO.catalogue.path)
   }, [location.search])
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 

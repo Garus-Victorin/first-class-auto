@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ThumbsUp, MessageCircle, Share2, Search, Send } from 'lucide-react'
 import { api } from '@/blink/client'
 import { dbToBlogPost } from '@/lib/db'
+import { setPageSEO, PAGE_SEO } from '@/lib/seo'
 import type { BlogPost } from '@/types'
 
 // Session ID persistant pour identifier l'utilisateur anonyme
@@ -282,6 +283,11 @@ function PostCard({ post }: { post: BlogPost }) {
 
 export function BlogPage() {
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    const s = PAGE_SEO.blog
+    setPageSEO(s.title, s.description, s.path)
+  }, [])
 
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ['blog-public'],

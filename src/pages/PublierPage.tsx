@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { CheckCircle, ChevronRight, ChevronLeft, Car, MessageCircle, ImageIcon } from 'lucide-react'
 import { Button, toast } from '@blinkdotnew/ui'
 import { api, uploadFiles } from '@/blink/client'
 import { BRANDS, FUEL_TYPES, TRANSMISSIONS, LOCATIONS, formatPrice, WHATSAPP_NUMBER } from '@/lib/utils'
+import { setPageSEO, PAGE_SEO } from '@/lib/seo'
 
 interface FormData {
   sellerName: string; sellerPhone: string; sellerEmail: string
@@ -57,6 +58,11 @@ export function PublierPage() {
   const [uploading, setUploading] = useState(false)
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
+
+  useEffect(() => {
+    const s = PAGE_SEO.publier
+    setPageSEO(s.title, s.description, s.path)
+  }, [])
 
   function buildWhatsappMessage() {
     const type = data.type === 'sale' ? 'À vendre' : 'À louer'

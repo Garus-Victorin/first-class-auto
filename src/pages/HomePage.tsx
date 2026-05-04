@@ -6,10 +6,17 @@ import { VehicleCard } from '@/components/vehicles/VehicleCard'
 import { VehicleCardSkeleton } from '@/components/vehicles/VehicleCardSkeleton'
 import { api } from '@/blink/client'
 import { dbToVehicle, dbToBlogPost } from '@/lib/db'
+import { setPageSEO, PAGE_SEO } from '@/lib/seo'
+import { useEffect } from 'react'
 import type { Vehicle } from '@/types'
 
 export function HomePage() {
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const s = PAGE_SEO.home
+    setPageSEO(s.title, s.description, s.path)
+  }, [])
 
   const { data: latestPosts = [] } = useQuery({
     queryKey: ['home-blog'],
