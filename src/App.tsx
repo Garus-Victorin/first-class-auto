@@ -1,4 +1,5 @@
 import { createRouter, createRoute, createRootRoute, RouterProvider, Outlet, redirect } from '@tanstack/react-router'
+import { Analytics } from '@vercel/analytics/react'
 import { Navbar } from './components/layout/Navbar'
 import { Footer } from './components/layout/Footer'
 import { HomePage } from './pages/HomePage'
@@ -27,6 +28,7 @@ const rootRoute = createRootRoute({
   component: () => (
     <div className="min-h-screen flex flex-col bg-background">
       <Outlet />
+      <Analytics />
     </div>
   ),
 })
